@@ -4,4 +4,4 @@
 #Line 7: Replace with file path of file created by block_tag.py
 #########################################################################
 
-/file_path/blocktag.19502022.nc
+/folder_path/block_tag.19502022.nc
