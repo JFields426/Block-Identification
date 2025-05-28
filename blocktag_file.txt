@@ -1,7 +1,7 @@
 #########################################################################
 #REQUIRED USER INPUTS: 
 
-#Line 7: Replace with file path of file created by IB_trimmed_overpole.py
+#Line 7: Replace with file path of file created by block_tag.py
 #########################################################################
 
-/file_path/blocktag.yyyymm1_yyyymm2.nc
+/file_path/blocktag.19502022.nc
