@@ -2,11 +2,19 @@ import numpy as np
 import xarray as xr
 from netCDF4 import Dataset
 
-# === Input and Output Filenames ===
-input_file = "block_id_1d_19502022.nc"
-output_file = "final_block_id.19502022.nc"
+#########################################################
+# REQUIRED USER INPUTS:
 
-# === Step 1: Load and Filter by Block Area ===
+# [OPTIONAL] Line 14: Change input file (if needed)
+# [OPTIONAL] Line 15: Change output file
+# [OPTIONAL] Line 52: Change block area thresholds
+#########################################################
+
+####### Define input and output file names #######
+input_file = "block_id_19502022.nc"
+output_file = "filtered_block_id.19502022.nc"
+
+####### Load and filter by block area #######
 print("Loading data and filtering by block area...")
 
 # Load dataset
@@ -51,7 +59,7 @@ print("Mapping of original to sequential IDs (excluding 0):")
 for old, new in id_mapping.items():
     print(f"{old} -> {new}")
 
-# === Step 2: Create Output NetCDF with Remapped IDs ===
+####### Create output NetCDF with remapped IDs #######
 print("Writing filtered and remapped data to output file...")
 
 # Open new NetCDF file
