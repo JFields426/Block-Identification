@@ -11,7 +11,7 @@ from netCDF4 import Dataset
 #########################################################
 
 ####### Define input and output file names #######
-input_file = "block_id_19502022.nc"
+input_file = "block_id.19502022.nc"
 output_file = "filtered_block_id.19502022.nc"
 
 ####### Load and filter by block area #######
