@@ -4,4 +4,4 @@
 #Line 7: Replace with file path of output file for StitchBlobs.py
 #################################################################
 
-/file_path/blockid.yyyymm1_yyyymm2.nc
+/file_path/block_id.19502022.nc
