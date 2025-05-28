@@ -4,40 +4,46 @@ import pandas as pd
 from datetime import datetime, timedelta
 from collections import defaultdict
 
-# === Load Block ID File ===
-nc_block = netCDF4.Dataset('/share/data1/Students/jfields/TempestExtremes/BlockID/block_id.filtered.19502022.nc', 'r')
+############################################################################
+# REQUIRED USER INPUTS:
 
-# === Load hgt File ===
-nc_hgt = netCDF4.Dataset('/share/data1/Students/jfields/TempestExtremes/ERA5_hgt_500mb.19502022_optimized.nc', 'r')
-hgt = nc_hgt.variables['hgt'][:]  # shape (time, lat, lon)
+# Line 16: Define file path for the filtered Block ID file
+# Line 18: Define file path for the reference 500hPa geopotential height file
+# Line 205: Define the file path for the output .csv file
+###########################################################################
 
-# === Coordinates and Time ===
-block_lat = nc_block.variables['latitude'][:]  # (111,) — blocking dataset
-block_lon = nc_block.variables['longitude'][:]  # (720,)
-hgt_lat = nc_hgt.variables['latitude'][:]       # (361,)
-hgt_lon = nc_hgt.variables['longitude'][:]      # (720,)
+####### Load input files #######
+nc_block = netCDF4.Dataset('/folder_path/filtered_block_id.19502022.nc', 'r')
+
+nc_hgt = netCDF4.Dataset('/folder_path/ERA5_hgt_500mb.19502022_optimized.nc', 'r')
+hgt = nc_hgt.variables['hgt'][:]
+
+####### Align spatial and temporal coordinates #######
+block_lat = nc_block.variables['latitude'][:]
+block_lon = nc_block.variables['longitude'][:]
+hgt_lat = nc_hgt.variables['latitude'][:]
+hgt_lon = nc_hgt.variables['longitude'][:]
 
 time_var = nc_block.variables['time']
 time_origin = datetime(1900, 1, 1)
 times = np.array([time_origin + timedelta(days=float(t)) for t in time_var[:]])
 time_resolution_days = (times[1] - times[0]).total_seconds() / (24 * 3600)
 
-# === Area Weights ===
+# Define weighted areas
 dlat = np.radians(np.abs(block_lat[1] - block_lat[0]))
 dlon = np.radians(np.abs(block_lon[1] - block_lon[0]))
 lat_rad = np.radians(block_lat)
 area_weights = np.outer(np.cos(lat_rad), np.ones(len(block_lon))) * dlat * dlon
 R = 6371  # Earth radius in km
 
-# === Match blocking latitudes in hgt file ===
 lat_mask = np.isin(hgt_lat, block_lat)
-hgt_lat_indices = np.where(lat_mask)[0]  # indices to subset hgt to match block latitudes
+hgt_lat_indices = np.where(lat_mask)[0]
 
-# === Variables ===
+####### Variables #######
 object_id = nc_block.variables['object_id']
 n_time = object_id.shape[0]
 
-# === First Pass: Track block presence ===
+####### First Pass: Track block presence #######
 block_points = defaultdict(list)
 block_times = {}
 block_area = defaultdict(list)
@@ -67,13 +73,12 @@ for t in range(n_time):
         area_km2 = np.sum(area_weights[indices]) * R**2
         block_area[block].append((area_km2, times[t]))
 
-# === Second Pass: Analyze blocks and compute BI ===
+####### Second Pass: Analyze blocks and compute BI #######
 print("Second pass: analyzing blocks...")
 
 block_data = {}
 BI_values = {}
 
-# Wraparound-safe longitude mask function
 def get_lon_indices_within_range(lon_vals, center_lon, offset):
     lon_vals = lon_vals % 360
     center_lon = center_lon % 360
@@ -94,7 +99,6 @@ def get_lon_indices_within_range(lon_vals, center_lon, offset):
 
 for block, points in block_points.items():
     times_list, y_list, x_list = zip(*points)
-
     times_arr = np.array(times_list)
     y_arr = np.array(y_list)
     x_arr = np.array(x_list)
@@ -107,18 +111,28 @@ for block, points in block_points.items():
     y_MZ = y_arr[max_index]
     x_MZ = x_arr[max_index]
 
-    MZ = hgt[t_MZ, hgt_lat_indices[y_MZ], x_MZ]
     lat_MZ = block_lat[y_MZ]
     lon_MZ = block_lon[x_MZ] % 360
+    lat_idx = hgt_lat_indices[y_MZ]
 
-    # === Find longitude ranges for Zu and Zd ===
+    # If MZ is at 35.0N, use next latitude above (35.5N)
+    if lat_MZ == 35.0:
+        target_lat = 35.5
+        next_lat_idx = np.argmin(np.abs(hgt_lat - target_lat))
+        if np.abs(hgt_lat[next_lat_idx] - target_lat) > 0.01:
+            print(f"Block {block}: Unable to find suitable latitude near 35.5N.")
+            continue
+        MZ = hgt[t_MZ, next_lat_idx, x_MZ]
+        hgt_slice = hgt[t_MZ, next_lat_idx, :]
+        lat_MZ = hgt_lat[next_lat_idx]
+    else:
+        MZ = hgt[t_MZ, lat_idx, x_MZ]
+        hgt_slice = hgt[t_MZ, lat_idx, :]
+
     west_lons, east_lons = get_lon_indices_within_range(block_lon, lon_MZ, 90)
-
-    hgt_slice = hgt[t_MZ, hgt_lat_indices[y_MZ], :]  # lat-sliced
     Zu_vals = hgt_slice[west_lons]
     Zd_vals = hgt_slice[east_lons]
 
-    # === Compute BI only if valid
     if Zu_vals.size == 0 or Zd_vals.size == 0:
         print(f"Block {block} skipped due to empty longitude selection.")
         continue
@@ -127,18 +141,34 @@ for block, points in block_points.items():
     Zd = np.min(Zd_vals)
 
     RC = (((Zu + MZ) / 2) + ((Zd + MZ) / 2)) / 2
-    BI = 100 * ((MZ / RC) - 1)
-
-    if lat_MZ == 35.0:
-        print(f"Skipping BI for block {block} due to max height at southern edge (lat_MZ = 35.0)")
+    if RC == 0:
+        print(f"Block {block}: Skipped due to zero RC.")
         BI = np.nan
-    elif BI == 0:
-        print(f"Zero BI detected for block {block}: MZ={MZ}, Zu={Zu}, Zd={Zd}, RC={RC}, lat_MZ={lat_MZ}")
-
+    else:
+        BI = 100 * ((MZ / RC) - 1)
+        if np.isclose(BI, 0, atol=1e-2):
+            print(f"BI nearly zero for block {block}: MZ={MZ}, Zu={Zu}, Zd={Zd}, RC={RC}, lat_MZ={lat_MZ}")
 
     BI_values[block] = BI
 
-    # === Other Block Properties ===
+    # Center lat/lon at first time step of blocking event
+    first_timestep = np.min(times_arr)
+    first_indices = np.where(times_arr == first_timestep)[0]
+
+    if len(first_indices) > 0:
+        first_y_coords = y_arr[first_indices]
+        first_x_coords = x_arr[first_indices]
+
+        center_lat = np.mean(block_lat[first_y_coords])
+
+        lons_rad = np.deg2rad(block_lon[first_x_coords] % 360)
+        center_lon_rad = np.arctan2(np.mean(np.sin(lons_rad)), np.mean(np.cos(lons_rad)))
+        center_lon = np.rad2deg(center_lon_rad) % 360
+    else:
+        center_lat = np.nan
+        center_lon = np.nan
+
+
     area_times = block_area[block]
     min_area_km2, min_time = min(area_times, key=lambda x: x[0])
     max_area_km2, max_time = max(area_times, key=lambda x: x[0])
@@ -152,11 +182,11 @@ for block, points in block_points.items():
         'min_size_time': min_time,
         'max_spatial_area_km2': max_area_km2,
         'max_size_time': max_time,
-        'center_latitude': np.mean(block_lat[list(y_list)]),
-        'center_longitude': np.mean(block_lon[list(x_list)]),
+        'center_latitude': center_lat,
+        'center_longitude': center_lon,
     }
 
-# === Save to CSV ===
+####### Save to output CSV file #######
 df = pd.DataFrame.from_dict(block_data, orient='index')
 df.index.name = 'block_id'
 df = df.reset_index()
@@ -172,10 +202,9 @@ df = df[
      'blocking_index']
 ]
 
-output_path = '/share/data1/Students/jfields/TempestExtremes/BlockID/AGP_block_summary.19502022_BI.csv'
+output_path = '/folder_path/block_summary.19502022.csv'
 df.to_csv(output_path, index=False)
 print(f"\nCSV file saved to {output_path}")
 
-# === Close Files ===
 nc_block.close()
 nc_hgt.close()
