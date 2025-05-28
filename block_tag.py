@@ -3,7 +3,16 @@ import numpy as np
 import glob
 import os
 
-# Define the latitude ranges
+#########################################################################################
+# REQUIRED USER INPUTS:
+
+# Line 25: Define the file path for the ERA5 data files
+# Line 30: Define the file path for the temporary output directory
+# Line 97: Define the file path for the final output file
+# [OPTIONAL] Line 27: Change the time range for the blocking dataset
+#########################################################################################
+
+####### Define the latitude ranges and pressure level for the AGP calculations #######
 lat0_range = np.arange(35, 90.5, 0.5)
 latS_range = np.where(lat0_range > 70, lat0_range - (90 - lat0_range), lat0_range - 20)
 latN_range = np.where(lat0_range > 70, lat0_range + (90 - lat0_range), lat0_range + 20)
@@ -11,14 +20,17 @@ lat15S_range = np.where(lat0_range > 70, lat0_range - (90 - lat0_range) * 0.75, 
 lat30S_range = np.where(lat0_range > 70, lat0_range - (90 - lat0_range) * 1.5, lat0_range - 30)
 
 pressure_level = 500
-file_path_pattern = '/data/deluge/reanalysis/REANALYSIS/ERA5/3D/4xdaily/hgt/hgt.*.nc'
+
+####### Define the desired time range #######
+file_path_pattern = '/folder_path/hgt.*.nc'
 all_files = glob.glob(file_path_pattern)
 filtered_files = [f for f in all_files if 'hgt.195001' <= f.split('/')[-1] <= 'hgt.202212.nc']
 filtered_files.sort(key=lambda x: int(x.split('/')[-1].split('.')[1]))
 
-output_temp_dir = "/share/data1/Students/jfields/BlockingDataset/temp_1d_blocks"
+output_temp_dir = "/folder_path/temp_block_tag"
 os.makedirs(output_temp_dir, exist_ok=True)
 
+####### Calculate GHGS and GHGN and identify instantaneous blocking #######
 output_temp_files = []
 
 for file_path in filtered_files:
@@ -34,7 +46,6 @@ for file_path in filtered_files:
     Z500_lat15S = ds_daily['hgt'].sel(latitude=lat15S_range, method='nearest')
     Z500_lat30S = ds_daily['hgt'].sel(latitude=lat30S_range, method='nearest')
 
-    # === Critical calculations (keep .values) ===
     GHGS = (Z500_lat0.values - Z500_latS.values) / 20
     GHGN = (Z500_latN.values - Z500_lat0.values) / 20
     gradient_S = (Z500_lat15S.values - Z500_lat30S.values)
@@ -53,7 +64,7 @@ for file_path in filtered_files:
 
     # Write out a temporary NetCDF for each file
     year = file_path.split('.')[-2]
-    temp_path = os.path.join(output_temp_dir, f'block_tag_1d.{year}.nc')
+    temp_path = os.path.join(output_temp_dir, f'block_tag.{year}.nc')
     ds_out.to_netcdf(temp_path, format='NETCDF4_CLASSIC')
     output_temp_files.append(temp_path)
 
@@ -62,7 +73,7 @@ for file_path in filtered_files:
     del ds, ds_500, ds_daily, Z500_lat0, Z500_latS, Z500_latN, Z500_lat15S, Z500_lat30S
     del GHGS, GHGN, gradient_S, valid_mask, GHGS_da, GHGN_da, ds_out
 
-# === Final merge of all output files (optional, or do this later) ===
+####### Merge temporary files into final output file #######
 combined = xr.open_mfdataset(output_temp_files, combine='by_coords')
 
 final_dataset = xr.Dataset({
@@ -80,10 +91,10 @@ encoding = {
     'longitude': {"dtype": "float64", "zlib": True, "complevel": 1},
 }
 
-final_dataset = final_dataset.chunk({'time': 365})  # or adjust as needed
+final_dataset = final_dataset.chunk({'time': 365})
 
 final_dataset.to_netcdf(
-    '/share/data1/Students/jfields/BlockingDataset/block_tag_1d.19502022.nc',
+    '/folder_path/block_tag.19502022.nc',
     format='NETCDF4_CLASSIC',
     engine='netcdf4',
     encoding=encoding,
