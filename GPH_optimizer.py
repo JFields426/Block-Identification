@@ -14,7 +14,7 @@ import logging
 ####### Load input files #######
 pressure_level = 500
 file_path_pattern = '/folder_path/hgt.*.nc'
-final_output_filename = 'ERA5_hgt_500mb.19502022_optimized.nc'
+final_output_filename = 'ERA5_hgt_500mb.19502024_optimized.nc'
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -24,7 +24,7 @@ all_files = glob.glob(file_path_pattern)
 if not all_files:
     raise FileNotFoundError(f"No files found matching pattern: {file_path_pattern}")
 
-filtered_files = [f for f in all_files if 'hgt.195001' <= os.path.basename(f) <= 'hgt.202212.nc']
+filtered_files = [f for f in all_files if 'hgt.195001' <= os.path.basename(f) <= 'hgt.202412.nc']
 filtered_files.sort(key=lambda f: int(os.path.basename(f).split('.')[1]))
 
 if not filtered_files:
