@@ -9,3 +9,8 @@ File Descriptions:
 5. block_filter.py - Filters blocks by the area of their maximum spatial extent.
 6. GPH_optimizer.py - Combines and resamples GPH files for memory optimization.
 7. blockinfo.py - Creates a .csv file containing information for the blocking dataset.
+
+[OPTIONAL FILES (Filter nonconforming blocking events based on local wave activity (Liu and Wang, 2025))]
+8. lwa.py - Creates a dataset of cyclonic and anticyclonic local wave activity.
+9. blockinfo_lwa - Creates the same .csv file as blockinfo.py with added maximum LWA value for each blocking event.
+10. lwa_filter.py - Filters out all blocking events that do not conform to 'ridge' and 'dipole' flow patterns.
