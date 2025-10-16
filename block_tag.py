@@ -24,7 +24,7 @@ pressure_level = 500
 ####### Define the desired time range #######
 file_path_pattern = '/folder_path/hgt.*.nc'
 all_files = glob.glob(file_path_pattern)
-filtered_files = [f for f in all_files if 'hgt.195001' <= f.split('/')[-1] <= 'hgt.202212.nc']
+filtered_files = [f for f in all_files if 'hgt.195001' <= f.split('/')[-1] <= 'hgt.202412.nc']
 filtered_files.sort(key=lambda x: int(x.split('/')[-1].split('.')[1]))
 
 output_temp_dir = "/folder_path/temp_block_tag"
