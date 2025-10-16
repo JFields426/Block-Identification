@@ -13,9 +13,9 @@ from collections import defaultdict
 ###########################################################################
 
 ####### Load input files #######
-nc_block = netCDF4.Dataset('/folder_path/filtered_block_id.19502022.nc', 'r')
+nc_block = netCDF4.Dataset('/folder_path/filtered_block_id.19502024.nc', 'r')
 
-nc_hgt = netCDF4.Dataset('/folder_path/ERA5_hgt_500mb.19502022_optimized.nc', 'r')
+nc_hgt = netCDF4.Dataset('/folder_path/ERA5_hgt_500mb.19502024_optimized.nc', 'r')
 hgt = nc_hgt.variables['hgt'][:]
 
 ####### Align spatial and temporal coordinates #######
@@ -202,7 +202,7 @@ df = df[
      'blocking_index']
 ]
 
-output_path = '/folder_path/block_summary.19502022.csv'
+output_path = '/folder_path/block_summary.19502024.csv'
 df.to_csv(output_path, index=False)
 print(f"\nCSV file saved to {output_path}")
 
