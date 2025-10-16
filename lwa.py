@@ -9,8 +9,7 @@ import os
 # REQUIRED USER INPUTS:
 
 # Line 24: Define folder path for input files
-# Line 17: Define output file name
-# Line 27: Select time range
+# Line 40: Define folder path for output file 
 #########################################################
 
 # === Manual Date Range Selection ===
@@ -21,7 +20,7 @@ end_date = '2024-12-31'
 a = 6.371e6  # Earth's radius [m]
 
 # === Load Z500 Data ===
-ds = xr.open_dataset("/folder_path/filename.nc")
+ds = xr.open_dataset("/folder_path/ERA5_hgt_500mb.19502024_optimized.nc")
 z500 = ds['hgt'].sel(time=slice(start_date, end_date))
 lat = z500.latitude.values
 lon = z500.longitude.values
@@ -37,12 +36,13 @@ z_zonal_mean = z500.mean(dim='longitude')
 z_prime = z500 - z_zonal_mean
 
 # === Output arrays ===
-output_path = "/share/data1/Students/jfields/block_data/in_progress/blocking_diversity/LWA_results.nc"
+output_path = "/folder_path/lwa.nc"
 # Pre-allocate output arrays
 lwa_all = np.full((len(time), len(lat), len(lon)), np.nan, dtype=np.float32)
 lwa_anti_all = np.full((len(time), len(lat), len(lon)), np.nan, dtype=np.float32)
 lwa_cyclo_all = np.full((len(time), len(lat), len(lon)), np.nan, dtype=np.float32)
 
+# === Compute LWA ===
 for ti in tqdm(range(len(time)), desc="Computing LWA"):
     lwa_t = np.full((len(lat), len(lon)), np.nan)
     lwa_anti_t = np.full((len(lat), len(lon)), np.nan)
@@ -70,10 +70,10 @@ for ti in tqdm(range(len(time)), desc="Computing LWA"):
                             bounds_error=False, fill_value=0.0)
         z_regrid = z_interp(phi)
         z_regrid_weighted = z_regrid * cosphi * dphi
-        # === Compute for ALL points north of 35N ===
+        #Compute for all points north of 35N
         for lat_idx in range(len(lat)):
             if lat[lat_idx] < 35:
-                continue  # skip south of 35N
+                continue
             phi_ei = phi[lat_idx]
             cosphi_ei = np.maximum(np.cos(phi_ei), 1e-1)
             # Anticyclonic part (z' ≥ 0, south of equivalent latitude)
@@ -86,12 +86,10 @@ for ti in tqdm(range(len(time)), desc="Computing LWA"):
             lwa_t[lat_idx, li] = lwa_anti_val + lwa_cyclo_val
             lwa_anti_t[lat_idx, li] = lwa_anti_val
             lwa_cyclo_t[lat_idx, li] = lwa_cyclo_val
-    # Store this time step in the pre-allocated arrays
     lwa_all[ti, :, :] = lwa_t
     lwa_anti_all[ti, :, :] = lwa_anti_t
     lwa_cyclo_all[ti, :, :] = lwa_cyclo_t
 
-# After loop, create DataArrays and Dataset, then write to disk
 lwa_xr = xr.DataArray(lwa_all, coords={'time': time, 'latitude': lat, 'longitude': lon},
                       dims=('time', 'latitude', 'longitude'), name='lwa')
 lwa_anti_xr = xr.DataArray(lwa_anti_all, coords={'time': time, 'latitude': lat, 'longitude': lon},
